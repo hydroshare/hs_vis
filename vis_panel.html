@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html>
+<head>
+	
+<!-- 
+* Sidharth Thakur, Feb-March 2013 (email: sthakur@renci.org).
+* Visualization panel showing a time series graph (line graph), a summary plot (box plot), and 
+* data table. The line graph and box plot are linked such that selection of a time interval
+* on the line graph will update the box plot. Additional user controls include options to switch
+* between linear and log scales.	
+-->
+	
+<title>HydroShare : Time Series Visualizations</title>
+<meta http-equiv="X-UA-Compatible" content="IE=EmulateIE7; IE=EmulateIE9">
+<meta http-equiv="content-type" content="text/html; charset=UTF-8"><meta charset="utf-8">
+<!-- Following is needed for compatibility with IE -->
+<!--[if IE]>
+<script type="text/javascript" src="./excanvas.js"></script>
+<![endif]-->
+<script type="text/javascript" src="http://dygraphs.com/dygraph-combined.js"></script>
+<script src="http://d3js.org/d3.v3.js"></script>
+<script src="box.js"></script>
+
+<style>
+html {
+	margin-top: 0px;
+	margin-left: 10px; 
+	padding: 0px}
+body {	
+	margin: 0px; padding: 0px
+}
+
+table
+{
+border-collapse:collapse;
+}
+#datatxt
+td
+{
+border: 1px solid gray;
+}
+#headerrow{
+	font-size: 9pt;
+	background: #ddddff;
+	font-weight: bold;
+}
+
+
+#content {
+	width: 960px;
+	background: #e8e8e8;
+	font: 12px sans-serif;
+	color: #2f2f2f;
+	margin-top: 0px;
+	margin-left: 0px;
+	padding-top: 0px;
+	padding-top: 3px;
+	padding-right: 3px;
+	padding-left: 3px;
+}
+
+#graph {
+	background: #fefefe;	
+	margin-top: 0px;
+	margin-left: 0px;
+	padding-top: 0px;
+	padding-top: 0px;
+	padding-right: 3px;
+	padding-left: 3px;
+}
+
+#boxplotdiv{
+	width: 100px;
+	background: #fafafa;
+	border: 1px solid gray;
+	vertical-align:top;
+}
+
+#datatxt {
+	background: #f8f8f8;
+	font: 10px sans-serif;
+	border: 1px solid gray;
+	color: #2f2f2f;	
+	margin-top: 0px;
+	margin-left: 0px;
+	padding-top: 0px;
+	padding-top: 0px;	
+}
+
+#datatable{ 
+	width: 960px;
+	overflow: auto;
+}
+
+#calendarvis{
+	width: 960px;
+}	
+
+.mybutton {
+	color: #0000ff;	
+}
+
+.box {
+  font: 10px sans-serif;
+}
+
+.box line,
+.box rect,
+.box circle {
+  fill: #fff;
+  stroke: #000;
+  stroke-width: 1.5px;
+}
+
+.box .center {
+  stroke-dasharray: 3,3;
+}
+
+.box .outlier {
+  fill: none;
+  stroke: #888;
+}
+
+.axis path,
+.axis line {
+  fill: none;
+  stroke: #bbb;
+  shape-rendering: crispEdges;
+}
+
+#mark {
+	color: #0000ff;	
+}
+
+/* Style for calendar view */
+.day {
+  fill: #fff;
+  stroke: #ccc;
+}
+
+.month {
+  fill: none;
+  stroke: #000;
+  stroke-width: 2px;
+}
+
+.RdYlGn .q0-11{fill:rgb(165,0,38)}
+.RdYlGn .q1-11{fill:rgb(215,48,39)}
+.RdYlGn .q2-11{fill:rgb(244,109,67)}
+.RdYlGn .q3-11{fill:rgb(253,174,97)}
+.RdYlGn .q4-11{fill:rgb(254,224,139)}
+.RdYlGn .q5-11{fill:rgb(255,255,191)}
+.RdYlGn .q6-11{fill:rgb(217,239,139)}
+.RdYlGn .q7-11{fill:rgb(166,217,106)}
+.RdYlGn .q8-11{fill:rgb(102,189,99)}
+.RdYlGn .q9-11{fill:rgb(26,152,80)}
+.RdYlGn .q10-11{fill:rgb(0,104,55)}
+
+
+</style>
+</head>
+<body>
+	
+<div id="content">
+	<table width="100%" border="0">
+		<tr>
+			<td><div style="font-family: Calibri; font-size:36pt;">HydroShare Time Series Vis</div></td>
+			<td><img src="./logos.png" height="50px" align="right"/></td>
+		</tr>
+		<tr>
+			<td colspan="2"><hr/></td>
+		</tr>
+	</table>
+
+The plot below compares a single quantity (discharge, cubic feet per second) for a single site. A box and whisker plot is shown 
+on right. The box plot is linked to the main plot and responds to changes in scale (linear/log) and zoom operation. <span id="mark">A calendar 
+visualization of the time series is shown at the bottom. In the calendar visualization, data values are quantized into 11 bins and 
+a red to green color scheme is used where red hues represent low values and green hues represent high values.</span>
+<br/>
+<b>Highlight data points:</b> hover mouse over the plots to see data values for particular time steps. <br/> 
+<b>Zooming:</b> In the time series plot, click left mouse button and drag horizontally to select a focus window;
+the plot will zoom to the selected range. To reset zoom, double-click on the plot. <b>Panning:</b>Press shift while dragging mouse button to pan the chart. <span id="mark">The box plot does not 
+respond to pan operations at this time due to performance issues. </span>
+<p>
+	The plots below were generated using D3.js and Dygraphs JavaScript API and standard HTML and CSS.  
+</p>
+</div>
+<br/>
+
+<div id="graph">
+<table border=0>
+	<tr>
+		<td valign=top width="800px">
+			<div id="graphdiv" style="width:800px; height:300px;">&nbsp;</div>
+			<div id="legend" style="font-size:0.8em; width:100px"></div>
+		</td>
+		<td valign=top align=left>
+			
+		</td>
+		<td valign=top align=left>
+			<div id="boxplotdiv" style="width:155px; height:300px;">&nbsp;</div>
+		</td>
+	</tr>
+	<tr>
+		<td colspan=3>
+			<div style="width: 800px; text-align: left;">
+			  <input class="mybutton" id="linear" type="button" value="Linear Scale" onClick="setScale(0)" />
+			  &nbsp;
+			  <input class="mybutton" id="log" type="button" value="Log Scale" onClick="setScale(1)" disabled=true />
+			</div>			
+		</td>
+	</tr>
+	<tr>
+		<td colspan=3>
+			<div id="calendarvis" style="background:#efffef; border:1px solid gray;"></div>
+		</td>
+	</tr>
+	<tr>
+		<td colspan=3>
+			<div id="datatable" style="background:#efefff; border:1px solid gray;"></div>
+		</td>
+	</tr>
+</table>
+
+</div>
+<script type="text/javascript">
+	var selectionStartDate = 0;	var selectionEndDate = 0;
+	
+	// Arrays to hold data.
+	var data = [];
+	var dataBP = [];
+	var dataHdr = [];
+	var dataStr = "";
+	var header = [];
+	var headerval = [];
+	var calData = [];
+	var numDataColumns = 0;
+	var dg = null;
+	var boolLogScale = true;
+
+	// Date-time format.
+	var parseDate = d3.time.format("%m/%d/%Y %H:%M").parse;
+
+	// D3 chart vars.	
+	var margin = {top: 10, right: 50, bottom: 20, left: 50},
+	    width = 120 - margin.left - margin.right,
+	    height = 300 - margin.top - margin.bottom;
+	
+	// Min/max for box plot.
+	var dbpMin = Infinity,
+	    dbpMax = -Infinity;
+	
+	// Create a box plot.
+	var chart = (d3.box()
+	    .whiskers(iqr(1.5))
+	    .width(width)
+	    .height(height));
+	    
+	// Global min/max values.
+	var min = Infinity,
+	    max = -Infinity;
+
+	// Scales for x and y axis
+	var yScaleBoxPlot = d3.scale.linear().range([height, 0]);
+	var yAxisBoxPlot = d3.svg.axis().scale(yScaleBoxPlot).orient("left");
+	var xScaleBoxPlot = d3.scale.linear().range([width, 0]);
+	var xAxisBoxPlot = d3.svg.axis().scale(xScaleBoxPlot).orient("bottom");    
+	
+
+	// Returns a function to compute the interquartile range.
+	function iqr(k) {
+	  return function(d, i) {
+	    var q1 = d.quartiles[0],
+	        q3 = d.quartiles[2],
+	        iqr = (q3 - q1) * k,
+	        i = -1,
+	        j = d.length;
+	    while (d[++i] < q1 - iqr);
+	    while (d[--j] > q3 + iqr);
+	    return [i, j];
+	  };
+	}
+	
+	
+	// Returns number of objects.
+	function count(obj) {
+	  var i = 0;
+	  for (var x in obj)
+	    if (obj.hasOwnProperty(x))
+	      i++;
+	  return i;
+	};
+	
+	//-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=//
+	/* Objects for calendar visualization of time series 	*/
+	//-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=//
+
+	var day = d3.time.format("%w"),
+	    week = d3.time.format("%U"),
+	    percent = d3.format(".1%"),
+	    format = d3.time.format("%-m/%-d/%Y");	
+
+	var color = d3.scale.quantize()
+	    .domain([0, 70])
+	    .range(d3.range(11).map(function(d) { return "q" + d + "-11"; }));
+		
+	/* Get data: Parse csv data file using D3.js' built-in csv parser. However, Dygraphs API takes in 
+	 * a comma-separated data file (JSON is not supported) so we re-construct the comma-separated data. 
+	 * We could re-read the data file, but just want to save the effort. 
+	 */
+		
+	d3.csv("./jw_all_cols.csv", function(src) {
+		data = src;
+		
+		//console.log(data);
+	
+		// For each entry/row extract date and data values	
+		data.forEach( function(d,i) {
+			// Define a local variable to count number of keys.
+			var k = 0;
+			
+			// Extract key labels from header, that is, first row. 
+			if(i==0)
+			for( var key in d )
+			{
+				// Save key in the header array.
+				header.push(key);
+			}	
+			else
+			{
+				d.date = parseDate(d.LocalDateTime);
+				d.value = +d.DataValue;
+			}
+			
+			if(i==1)
+			for( var key in d )
+			{
+				headerval.push(d[key]);
+			}
+		});
+		
+		// Get date range.
+		var dateRange = d3.extent( data.map( function(d) {
+			return d.date;
+		}));
+
+		// Programatically create a table of data values.
+		var dataTable = d3.select("#datatable")
+			.append("table")
+			.attr("id","datatxt")
+			.attr("border","0")
+			.attr("width","100%")
+			.attr("valign","top");
+			
+		var hdrRow = dataTable
+			.append("tr")
+			.attr("valign","top")
+			.attr("id","headerrow");
+			
+		hdrRow.selectAll("td")
+			.data(header)
+			.enter()
+			.append("td")
+			.text( function(d){ return d; });
+			
+		var dataRow = dataTable
+			.append("tr")
+			.attr("valign","top")
+			.attr("id","datarow");
+			
+		dataRow.selectAll("td")
+			.data(header)
+			.enter()
+			.append("td")
+			.text( function(d,i){return headerval[i];});
+
+		
+		// Create a string 'dataStr' that will be used in the line graph.		
+		src.forEach( function(d,i) {
+			var k = 0;
+			if(i==0) {
+				// Read number of columns from input data file. 
+				//numDataColumns = count(d);
+				
+				// Get the header row.
+				for( var key in d ) {
+					if( ++k < numDataColumns )
+						dataStr += key+",";
+					else
+						dataStr += key;
+					
+					if(k>1)
+						dataHdr.push(key);	
+				}
+				
+				dataStr = header[3] + "," + header[4];
+
+				dataStr += "\n";
+			}
+
+			
+			// Get values from only column 3 and 4
+			k = 0;
+			for( var key in d ) {
+				if( k==3 )
+					dataStr += d[key]+",";
+				else if( k==4 )
+					dataStr += d[key];
+				k++;
+			}
+			dataStr += "\n";
+				
+		});
+		//console.log("dataStr: " + dataStr);
+		
+		// Legacy. This is from the file "multi_plot_dual.html"
+		numDataColumns = 1;
+		
+
+		// Render plots. 
+		DrawDygraph(); 
+		
+		DrawBoxPlot();
+		
+		
+
+		d3.csv("./jw_discharge2.csv", function(error, csv) {
+
+			calData = d3.nest()
+				.key(function(d) { return d.Date; })
+				.rollup(function(d) { return d[0].value; })
+				.map(csv);
+			
+			CalendarVis();
+			
+		});
+
+				
+	});
+	
+	function DrawBoxPlot() {
+				
+		// Create an array to hold data for the box plot. This was done to hold time series 
+		// for multiple sites, but in this file only one site is visualized. 
+		dataBP = [];
+		dataBP = new Array();
+		for( var i=0; i< (numDataColumns); i++ )
+		{
+			dataBP.push(new Array());
+		}
+
+		// Extract data values from the array 'data' that was created earlier.
+		data.forEach( function(d,i) {
+			var k = 0;
+			var _date = (d.date);
+
+			if( _date >= selectionStartDate && _date <= selectionEndDate ) 
+			{
+				for( var key in d ) {
+					// Data values
+					if(k==4) 
+					{				
+						// A global variable checks type of scale 	
+						if( boolLogScale )
+						{
+							if( +d[key] > 0 )
+								dataBP[0].push( Math.log(+d[key]));
+							else
+								dataBP[0].push(0);
+						}
+						else
+							dataBP[0].push( (+d[key]));
+							
+					}
+					k++;
+				}
+			}
+		});
+		
+		
+		dbpMin = Infinity;
+		dbpMax = -Infinity;
+		
+		// Get min/max for box plot;
+		dataBP.forEach( function(s,i) {
+			var _min = Infinity, 
+				_max = -Infinity;
+			
+			_max = d3.max( s.map( function(d) { return +d; } ) );
+			_min = d3.min( s.map( function(d) { return +d; } ) );
+			if( _max >= dbpMax ) dbpMax = _max;
+			if( _min <= dbpMin ) dbpMin = _min; 
+		});
+		
+		// Define domain for D3 axis.
+		yScaleBoxPlot.domain([dbpMin, dbpMax]);
+		xScaleBoxPlot.domain(dataHdr);
+		
+		// Clear the chart axes. This is done when user switches between log/linear scale.
+		chart.domain([dbpMin, dbpMax]);
+		d3.select("#boxplotdiv").selectAll("svg")
+		.remove();
+		
+		// Create chart element and define its attributes.
+	  	var svg = d3.select("#boxplotdiv").selectAll("svg")
+		    .data(dataBP)
+		    .enter().append("svg")
+		      .attr("class", "box")
+		      .attr("width", width + margin.left + margin.right)
+		      .attr("height", height + margin.bottom + margin.top)
+		    .append("g")
+		      .attr("transform", "translate(" + margin.left + "," + margin.top + ")")
+		      .call(chart);	
+		    
+		svg.append("g")
+	 	    .attr("class", "y axis")
+	 	    .attr("transform","translate("+(-15)+"," + (0) + ")")
+		    .call(yAxisBoxPlot);	
+		    
+		svg.append("g")
+	 	    .attr("class", "x axis")
+	 	    .attr("transform","translate("+(0)+"," + (height) + ")")
+		    .call(xAxisBoxPlot);
+		    
+		svg
+			.append("text")
+			.text(function(d,i){return dataHdr[i];})
+			.attr("transform","translate("+0+","+(height+15)+")");		
+		    
+		
+	};
+	
+	/* 
+	 * This function uses the Dygraphs JavaScript API to create interactive charts. Unlike D3.js, Dygraphs 
+	 * provides 'canned' charts and plots that can be customized by chaning chart options. Dygraphs might
+	 * be more useful because it works out-of-the-box and has extensive customization options.
+	 */
+	function DrawDygraph() {
+	 	dg = new Dygraph(
+		  	// Where to draw.
+			document.getElementById("graphdiv"),
+			
+			// What to draw.
+			//"site_compare_discharge.csv",
+			dataStr, // data string constructed from d3.csv parser above
+			
+			// How to draw.
+			{
+				logscale: true,
+				title: "Discharge: Jacobs Well Spg vs Blanco Rv at Halifax Rch",
+				xlabel: "Date",
+				ylabel: "Discharge cu. feet per sec",
+				yLabelWidth: 20,
+				yRangePad: 3,
+				colors: ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2'],
+				strokeWidth: 1.75,
+				labelsDivWidth: 350,
+				hideOverlayOnMouseOut:true,
+				labelsDiv: document.getElementById('legend'),
+				legend: 'always',
+			    labelsDivStyles: { 'textAlign': 'right' },
+			    labelsSeparateLines: false,
+			    showRangeSelector: false, //true,
+			    
+			    /*
+			    axes: {
+				  x: {
+				    ticker: function(a, b, pixels, opts, dygraph, vals) {
+				      return Dygraph.getDateAxis(a, b, Dygraph.WEEKLY, opts, dygraph);
+				    }
+				  }
+				},
+			    */
+			    drawCallback: function(dg) {
+			    	var d0 = new Date(0), d1 = new Date(0);
+			    	selectionStartDate = epochToDate(d0.setUTCSeconds(dg.xAxisRange()[0]/1000));
+			    	selectionEndDate = epochToDate(d1.setUTCSeconds(dg.xAxisRange()[1]/1000));
+			    	//Update();
+			     },
+		
+
+				zoomCallback: function(dg) {
+					Update();
+				},	       
+
+			}         
+		);
+	};
+
+	/* 
+	 * This function renders a calendar visualization of the time series data.
+	 */
+	var cellSize = 15; // cell size
+	var calVisWidth = 960, 
+		calVisHeight = 125;
+	
+	function CalendarVis() {
+		
+		// Create svg elements for the number of years.
+		var svgc = d3.select("#calendarvis").selectAll("svg")
+					.data(d3.range(2009,2011))
+					.enter().append("svg")
+						.attr("width",calVisWidth)
+						.attr("height",calVisHeight)
+						.attr("class","RdYlGn")
+					.append("g")
+						.attr("transform", "translate(" + ((calVisWidth - cellSize * 53) / 2) + "," + (calVisHeight - cellSize * 7 - 1) + ")");
+	
+		// Add label for year.
+		svgc.append("text")
+		    .attr("transform", "translate(-6," + cellSize * 3.5 + ")rotate(-90)")
+		    .style("text-anchor", "middle")
+		    .text(function(d) { return d; });
+		    
+		// Add rectangles for each day.
+		var rect = svgc.selectAll(".day")
+		    .data(function(d) { return d3.time.days(new Date(d, 0, 1), new Date(d + 1, 0, 1)); })
+		  	.enter().append("rect")
+			    .attr("class", "day")
+			    .attr("width", cellSize)
+			    .attr("height", cellSize)
+			    .attr("x", function(d) { return week(d) * cellSize; })
+			    .attr("y", function(d) { return day(d) * cellSize; })
+		    .datum(format);
+		
+		// Append a title for each rectangle.    
+		rect.append("title")
+    		.text(function(d) { return d; });
+
+		// Create a path to outline each month.
+		svgc.selectAll(".month")
+		    .data(function(d) { return d3.time.months(new Date(d, 0, 1), new Date(d + 1, 0, 1)); })
+		  .enter().append("path")
+		    .attr("class", "month")
+		    .attr("d", monthPath);
+		
+		// Color code rectangles based on available data values. 
+		rect.filter(function(d) { return d in calData; })
+			.attr("class", function(d) { return "day " + color(calData[d]); })
+			.select("title")
+			.text(function(d) { return d + " : " + calData[d]; });
+	};	
+
+	// Date formatting function.
+	function epochToDate(ts) {
+		var d = new Date(0);
+		d.setUTCSeconds(ts/1000);
+		return d;	
+	};
+	  
+	// Activate log/linear scale when user presses buttons on screen.
+	function setScale(option) {
+	  if( option==0 )
+	   val = false;
+	  else if( option==1 )
+	   val = true; 
+	  
+	  dg.updateOptions({ logscale: val });
+	  document.getElementById("linear").disabled = !val;
+	  document.getElementById("log").disabled = val;
+	  
+	  boolLogScale = val;
+
+	  DrawBoxPlot();
+	};
+	
+	function Update() {
+		DrawBoxPlot();
+	};
+	
+	// Function used to draw outline for months in Calendar Vis
+	function monthPath(t0) {
+	  var t1 = new Date(t0.getFullYear(), t0.getMonth() + 1, 0),
+	      d0 = +day(t0), w0 = +week(t0),
+	      d1 = +day(t1), w1 = +week(t1);
+	  return "M" + (w0 + 1) * cellSize + "," + d0 * cellSize
+	      + "H" + w0 * cellSize + "V" + 7 * cellSize
+	      + "H" + w1 * cellSize + "V" + (d1 + 1) * cellSize
+	      + "H" + (w1 + 1) * cellSize + "V" + 0
+	      + "H" + (w0 + 1) * cellSize + "Z";
+	};
+
+</script>
+
+
+</br>
+<div id="content">
+<font color="#606060" size="1"> Visualization: 
+Sidharth Thakur, (RENCI; sthakur@renci.org), last modified <script type="text/javascript"> document.write(document.lastModified)</script>. Data: Jeff Horsburgh and David Tarboton (Utah State University).
+</font>	
+</div>
+</body>
+</html>

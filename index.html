@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>HydroShare : Multi Plots</title>
+		<!-- Disclaimer: Adapted from https://gist.github.com/benjchristensen/2579619#file-index-html -->
+
+		<meta http-equiv="X-UA-Compatible" content="IE=EmulateIE7; IE=EmulateIE9">
+		<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+		<meta charset="utf-8">
+		<!--[if IE]>
+		<script type="text/javascript" src="./excanvas.js"></script>
+		<![endif]-->
+		<script src="http://mbostock.github.com/d3/d3.v2.js"></script>
+		<style>
+			/* tell the SVG path to be a thin blue line without any area fill */
+			path {
+				stroke-width: 1.5;
+				fill: none;
+			}
+			.data1 {
+				stroke: steelblue;
+			}
+
+			.data2 {
+				stroke: orange;
+			}
+
+			.axis {
+				shape-rendering: crispEdges;
+			}
+
+			.x.axis line {
+				stroke: lightgrey;
+			}
+
+			.x.axis .minor {
+				stroke-opacity: .5;
+			}
+			
+			.x.axis path {
+				display: true;
+				fill: none;
+				stroke: lightgrey;
+				stroke-width: 1;
+			}
+					
+			.x.axis text {
+				font-size: 10pt;
+				font-family: calibri;
+			}
+
+			.y.axis line, .y.axis path {
+				fill: none;
+				stroke: #000;
+				stroke-width: 1;
+			}
+
+			.y.axis text {
+				font-size: 14;
+				/*font-weight: bold;*/
+			}
+
+			.y.axisRight text {
+				fill: orange;
+			}
+			.y.axisLeft text {
+				fill: steelblue;
+			}
+			
+			.overlay {
+			  fill: none;
+			  stroke: none;
+			  pointer-events: all;
+			}			
+			
+			html {
+				margin-top: 0px;
+				margin-left: 10px; 
+				padding: 0px}
+			body {	
+				margin: 0px; padding: 0px
+			}
+			
+
+			#footer {
+				width: 955px;
+				background: #e8e8e8;
+				font: 12px sans-serif;
+				color: #808080;
+				margin-top: 0px;
+				margin-left: 0px;
+				padding-top: 3px;
+				padding-bottom: 3px;
+				padding-right: 3px;
+				padding-left: 3px;
+			}
+			#content {
+				width: 960px;
+				background: #f8f8f8;
+				font: 14px sans-serif;
+				color: #2f2f2f;
+				margin-top: 0px;
+				margin-left: 0px;
+				padding-top: 0px;
+				padding-top: 3px;
+				padding-right: 3px;
+				padding-left: 3px;
+			}
+			
+			#graph {
+				/*width: 655px;*/
+				/*border: 1px solid black;*/
+				background: #fefefe;	
+				margin-top: 0px;
+				margin-left: 0px;
+				padding-top: 0px;
+				padding-top: 0px;
+				padding-right: 0px;
+				padding-left: 0px;
+			}			
+		</style>
+	</head>
+	<body>
+		<div id="content">
+			<table width="100%" border="0">
+				<tr><div id="header">
+					<td><div style="font-family: Calibri; font-size:36pt;">HydroShare Time Series Vis</div></td>
+					<td><img src="./logos.png" height="50px" align="right"/></td>
+					</div>
+				</tr>
+				<tr>
+					<td colspan="2"><hr/></td>
+				</tr>
+				<tr>
+					<td colspan="2">
+						<p>
+							This page lists links to web-based, interactive graphs, plots, and visualizations of sample data from the <a href="http://www.cuahsi.org/HydroShare.aspx">HydroShare</a> project. 
+							The purpose of this effort is to explore visual representations and interactive analytical tools to support exploration and analysis of time series data.
+						</p>
+						<p>
+							Currently individual charts are shown but they can be easily combined into a panel showing multiple charts. Standard 
+							data visualization techniques such as <i>linking</i> (connecting user actions across multiple charts) and <i>brushing</i> (selecting a set of data points 
+							in linked charts) will be explored to provide analytical capabilities. 							
+						</p>
+						<p>
+							List of examples:
+							<table>
+								<tr valign="top">
+									<td>
+										
+							<table>
+								<tr>
+									<td>1.&nbsp;</td>
+									<td><a href="./index_jw_multi.html">Multiple charts for a single site</a></td>
+								</tr>
+								<tr>
+									<td>2.&nbsp;</td>
+									<td><a href="./multi_site_discharge.html">A chart for a single quantitiy but multiple sites</a></td>
+								</tr>
+								<tr>
+									<td>3.&nbsp;</td>
+									<td><a href="./multi_site_multi_plots.html">Same as #2 but with linked summary plot</a></td>
+								</tr>
+								<tr>
+									<td>4.&nbsp;</td>
+									<td><a href="./multi_plot_dual.html">Plot of two related quantities in a single chart</a></td>
+								</tr>
+								<tr>
+									<td>5.&nbsp;</td>
+									<td><a href="./vis_panel.html">Example of a simple visualization panel</a></td>
+								</tr>
+								<tr>
+									<td>6.&nbsp;</td>
+									<td><a href="./images/vis_panel_mockup_1.png">A mock-up of a visualization panel with data table</a></td>
+								</tr>								
+							</table>
+									</td>
+									<td>&nbsp;</td>
+									<td>
+										<table>
+											<tr>
+												<td><img src="./images/collage.png" height="200px"/></td>
+											</tr>
+										</table>
+									</td>
+								</tr>
+							</table>
+						</p>  
+					</td>
+				</tr>
+			</table>
+
+
+		<!--<div id="graph" class="aGraph" style="position:absolute;top:0px;left:0; float:left;"></div>-->
+		<div id="graph" class="aGraph"></div>
+		<!--
+		<div style="width: 800px; text-align: center;">
+		  <input class="mybutton" id="linear" type="button" value="Linear Scale" onClick="setLog(false)" />
+		  &nbsp;
+		  <input class="mybutton" id="log" type="button" value="Log Scale" onClick="setLog(true)" disabled=true />
+		</div>
+		-->
+		
+		<div id="footer">
+		Visualization: 
+		Sidharth Thakur, (RENCI; sthakur@renci.org). Data: Jeff Horsburgh and David Tarboton (Utah State University). Page last modified <script type="text/javascript"> document.write(document.lastModified)</script>
+			
+		</div>
+		
+	</body>
+</html>

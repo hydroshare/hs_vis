@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>HydroShare : Time Series Visualizations</title>
+<meta http-equiv="X-UA-Compatible" content="IE=EmulateIE7; IE=EmulateIE9">
+<meta http-equiv="content-type" content="text/html; charset=UTF-8"><meta charset="utf-8">
+<!--[if IE]>
+<script type="text/javascript" src="./excanvas.js"></script>
+<![endif]-->
+<script type="text/javascript" src="http://dygraphs.com/dygraph-combined.js"></script>
+<script src="http://d3js.org/d3.v3.js"></script>
+<script src="box.js"></script>
+
+<style>
+html {
+	margin-top: 0px;
+	margin-left: 10px; 
+	padding: 0px}
+body {	
+	margin: 0px; padding: 0px
+}
+
+#content {
+	width: 960px;
+	background: #e8e8e8;
+	font: 12px sans-serif;
+	color: #2f2f2f;
+	margin-top: 0px;
+	margin-left: 0px;
+	padding-top: 0px;
+	padding-top: 3px;
+	padding-right: 3px;
+	padding-left: 3px;
+}
+
+#graph {
+	/*width: 655px;*/
+	/*border: 1px solid black;*/
+	background: #fefefe;	
+	margin-top: 0px;
+	margin-left: 0px;
+	padding-top: 0px;
+	padding-top: 0px;
+	padding-right: 3px;
+	padding-left: 3px;
+}
+
+#graphdiv{
+	/*border: 1px solid black;*/	
+}
+
+#boxplotdiv{
+	background: #fafafa;
+	border: 1px solid gray;
+}
+
+.mybutton {
+	color: #0000ff;	
+}
+
+.box {
+  font: 10px sans-serif;
+}
+
+.box line,
+.box rect,
+.box circle {
+  fill: #fff;
+  stroke: #000;
+  stroke-width: 1.5px;
+}
+
+.box .center {
+  stroke-dasharray: 3,3;
+}
+
+.box .outlier {
+  fill: none;
+  stroke: #888;
+}
+
+.axis path,
+.axis line {
+  fill: none;
+  stroke: #bbb;
+  shape-rendering: crispEdges;
+}
+
+#mark {
+	color: #0000ff;	
+}
+
+</style>
+</head>
+<body>
+	
+<div id="content">
+	<table width="100%" border="0">
+		<tr>
+			<td><div style="font-family: Calibri; font-size:36pt;">HydroShare Time Series Vis</div></td>
+			<td><img src="./logos.png" height="50px" align="right"/></td>
+		</tr>
+		<tr>
+			<td colspan="2"><hr/></td>
+		</tr>
+	</table>
+
+The plot below compares a single quantity (discharge, cubic feet per second) for two sites. <span id="mark">A box and whisker plot is shown 
+on right. The box plot is linked to the main plot and responds to changes in scale (linear/log) and zoom operation. </span>
+  
+<b>Highlight data points:</b> hover mouse over the plot to see data values for particular time steps. <br/> 
+<b>Zooming:</b> In the time series plot, click left mouse button and drag horizontally to select a focus window;
+the plot will zoom to the selected range. To reset zoom, double-click on the plot. <b>Panning:</b>Press shift while dragging mouse button to pan the chart. <span id="mark">The box plot does not 
+respond to pan operations at this time due to performance issues. </span>
+<p>
+	The plots below were generated using D3.js and Dygraphs JavaScript API and standard HTML and CSS.  
+</p>
+</div>
+<br/>
+
+<div id="graph">
+<table border=0>
+	<tr>
+		<td>
+			<div id="graphdiv" style="width:500px; height:300px;">&nbsp;</div>
+		</td>
+		<td valign=top>
+			<div id="legend" style="width:150px; font-size:0.8em; padding-top:5px;">&nbsp;</div>
+		</td>
+		<td>
+			<div id="boxplotdiv" style="width:300px; height:300px;">&nbsp;</div>
+		</td>
+		
+	</tr>
+</table>
+<div style="width: 800px; text-align: left;">
+  <input class="mybutton" id="linear" type="button" value="Linear Scale" onClick="setLog(false)" />
+  &nbsp;
+  <input class="mybutton" id="log" type="button" value="Log Scale" onClick="setLog(true)" disabled=true />
+</div>
+</div>
+<script type="text/javascript">
+	var selectionStartDate = 0;	var selectionEndDate = 0;
+	
+	var data = [];
+	var dataBP = [];
+	var dataHdr = [];
+	var dataStr = "";
+	var numDataColumns = 0;
+	var dg = null;
+	var boolLogScale = true;
+
+	// D3 chart vars.	
+	var margin = {top: 10, right: 50, bottom: 20, left: 50},
+	    width = 120 - margin.left - margin.right,
+	    height = 300 - margin.top - margin.bottom;
+	
+	var dbpMin = Infinity,
+	    dbpMax = -Infinity;
+	
+	var chart = (d3.box()
+	    .whiskers(iqr(1.5))
+	    .width(width)
+	    .height(height));
+	    
+	var min = Infinity,
+	    max = -Infinity;
+
+	var yScaleBoxPlot = d3.scale.linear().range([height, 0]);
+	var yAxisBoxPlot = d3.svg.axis().scale(yScaleBoxPlot).orient("left");
+	var xScaleBoxPlot = d3.scale.linear().range([width, 0]);
+	var xAxisBoxPlot = d3.svg.axis().scale(xScaleBoxPlot).orient("bottom");    
+	
+
+	// Returns a function to compute the interquartile range.
+	function iqr(k) {
+	  return function(d, i) {
+	    var q1 = d.quartiles[0],
+	        q3 = d.quartiles[2],
+	        iqr = (q3 - q1) * k,
+	        i = -1,
+	        j = d.length;
+	    while (d[++i] < q1 - iqr);
+	    while (d[--j] > q3 + iqr);
+	    return [i, j];
+	  };
+	}
+	
+	
+	function count(obj) {
+	  var i = 0;
+	  for (var x in obj)
+	    if (obj.hasOwnProperty(x))
+	      i++;
+	  return i;
+	};
+		
+	/* Get data: Parse csv data file using D3.js' built-in csv parser. However, Dygraphs API takes in 
+	 * a comma-separated data file (JSON is not supported) so we re-construct the comma-separated data. 
+	 * We could re-read the data file, but just want to save the effort. 
+	 */
+	
+	d3.csv("./site_compare_discharge.csv", function(src) {
+		data = src;
+		src.forEach( function(d,i) {
+			var k = 0;
+			if(i==0) {
+				numDataColumns = count(d);
+				for( var key in d ) {
+					if( ++k < numDataColumns )
+						dataStr += key+",";
+					else
+						dataStr += key;
+					
+					if(k>1)
+						dataHdr.push(key);	
+				}
+				dataStr += "\n";
+			}
+
+			k = 0;
+			for( var key in d ) {
+				if( ++k < numDataColumns ) 
+					dataStr += d[key]+",";
+				else
+					dataStr += d[key];
+			}
+			dataStr += "\n";
+				
+		});
+		
+
+		//console.log(" dataStr: " + dataStr);
+		DrawDygraph(); 
+		
+		DrawBoxPlot();
+	});
+	
+	function DrawBoxPlot() {
+		
+		//console.log("Drawing box plot..." + " start/end date: " + selectionStartDate + ", " + selectionEndDate);
+		
+		var parseDate = d3.time.format("%m/%d/%Y %H:%M").parse;
+		
+		dataBP = [];
+		dataBP = new Array();
+		for( var i=0; i< (numDataColumns-1); i++ )
+		{
+			dataBP.push(new Array());
+		}
+		
+		data.forEach( function(d,i) {
+			var k = 0;
+			var _date = parseDate(d.Date);
+			//console.log(i + " > d.Date: " + _date );
+			if( _date >= selectionStartDate && _date <= selectionEndDate ) 
+			{
+				for( var key in d ) {
+					if(k>0) 
+					{					
+						if( boolLogScale )
+						{
+							if( +d[key] > 0 )
+								dataBP[k-1].push( Math.log(+d[key]));
+							else
+								dataBP[k-1].push(0);
+						}
+						else
+							dataBP[k-1].push( (+d[key]));
+							
+					}
+					k++;
+				}
+			}
+		});
+
+		
+		dbpMin = Infinity;
+		dbpMax = -Infinity;
+		
+		// Get min max;
+		dataBP.forEach( function(s,i) {
+			var _min = Infinity, 
+				_max = -Infinity;
+			
+			_max = d3.max( s.map( function(d) { return +d; } ) );
+			_min = d3.min( s.map( function(d) { return +d; } ) );
+			//console.log(" mean: " + d3.mean( s.map( function(d) { return +d; })));
+			//console.log(" min/max: " + _min + ", " + _max );
+			if( _max >= dbpMax ) dbpMax = _max;
+			if( _min <= dbpMin ) dbpMin = _min; 
+		});
+		
+		//console.log(" min/max: " + dbpMin + ", " + dbpMax );
+		
+		//console.log(" headers: " + dataHdr);
+		
+		// Axis.
+		yScaleBoxPlot.domain([dbpMin, dbpMax]);
+		xScaleBoxPlot.domain(dataHdr);
+		
+		chart.domain([dbpMin, dbpMax]);
+		d3.select("#boxplotdiv").selectAll("svg")
+		.remove();
+		
+	  	var svg = d3.select("#boxplotdiv").selectAll("svg")
+		    .data(dataBP)
+		    .enter().append("svg")
+		      .attr("class", "box")
+		      .attr("width", width + margin.left + margin.right)
+		      .attr("height", height + margin.bottom + margin.top)
+		    .append("g")
+		      .attr("transform", "translate(" + margin.left + "," + margin.top + ")")
+		      .call(chart);	
+		    
+		svg.append("g")
+	 	    .attr("class", "y axis")
+	 	    .attr("transform","translate("+(-15)+"," + (0) + ")")
+		    .call(yAxisBoxPlot);	
+		    
+		svg.append("g")
+	 	    .attr("class", "x axis")
+	 	    .attr("transform","translate("+(0)+"," + (height) + ")")
+		    .call(xAxisBoxPlot);
+		    
+		svg
+			.append("text")
+			.text(function(d,i){return dataHdr[i];})
+			.attr("transform","translate("+0+","+(height+15)+")");			    
+		
+	};
+	
+	function DrawDygraph() {
+	 	dg = new Dygraph(
+		  	// Where to draw.
+			document.getElementById("graphdiv"),
+			
+			// What to draw.
+			//"site_compare_discharge.csv",
+			dataStr, // data string constructed from d3.csv parser above
+			
+			// How to draw.
+			{
+				logscale: true,
+				title: "Discharge: Jacobs Well Spg vs Blanco Rv at Halifax Rch",
+				xlabel: "Date",
+				ylabel: "Discharge cu. feet per sec",
+				yLabelWidth: 20,
+				yRangePad: 3,
+				colors: ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2'],
+				strokeWidth: 1.75,
+				labelsDivWidth: 350,
+				hideOverlayOnMouseOut:true,
+				labelsDiv: document.getElementById('legend'),
+				legend: 'always',
+			    labelsDivStyles: { 'textAlign': 'right' },
+			    labelsSeparateLines: true,
+			    showRangeSelector: false, //true,
+			    
+			    /*
+			    axes: {
+				  x: {
+				    ticker: function(a, b, pixels, opts, dygraph, vals) {
+				      return Dygraph.getDateAxis(a, b, Dygraph.WEEKLY, opts, dygraph);
+				    }
+				  }
+				},
+			    */
+			    drawCallback: function(dg) {
+			    	var d0 = new Date(0), d1 = new Date(0);
+			    	selectionStartDate = epochToDate(d0.setUTCSeconds(dg.xAxisRange()[0]/1000));
+			    	selectionEndDate = epochToDate(d1.setUTCSeconds(dg.xAxisRange()[1]/1000));
+			    	//Update();
+			     },
+		
+
+				zoomCallback: function(dg) {
+					Update();
+				},	       
+
+			}         
+		);
+	};
+
+	function epochToDate(ts) {
+		var d = new Date(0);
+		d.setUTCSeconds(ts/1000);
+		return d;	
+	};
+	  
+	function setLog(val) {
+	  dg.updateOptions({ logscale: val });
+	  document.getElementById("linear").disabled = !val;
+	  document.getElementById("log").disabled = val;
+	  
+	  boolLogScale = val;
+
+	  DrawBoxPlot();
+	};
+	
+	function Update() {
+		//console.log(" Date range: " +  selectionStartDate + " ---- " + selectionEndDate );	
+		DrawBoxPlot();
+	};
+</script>
+
+
+</br>
+<div id="content">
+<font color="#606060" size="2"> Visualization: 
+Sidharth Thakur, (RENCI; sthakur@renci.org), last modified <script type="text/javascript"> document.write(document.lastModified)</script>. Data: Jeff Horsburgh and David Tarboton (Utah State University).
+</font>	
+</div>
+</body>
+</html>

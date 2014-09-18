@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>HydroShare : Multi Plots</title>
+		<!-- Disclaimer: Adapted from https://gist.github.com/benjchristensen/2579619#file-index-html -->
+		<!-- 
+		* Sidharth Thakur, Feb-March 2013 (email: sthakur@renci.org).
+		* Visualization panel showing time series graphs in a single plot for two different measured quantitites for 
+		* a single site.  	
+		-->	
+		<meta http-equiv="X-UA-Compatible" content="IE=EmulateIE7; IE=EmulateIE9">
+		<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+		<meta charset="utf-8">
+		<!--[if IE]>
+		<script type="text/javascript" src="./excanvas.js"></script>
+		<![endif]-->
+		<script src="http://mbostock.github.com/d3/d3.v2.js"></script>
+		<style>
+			/* tell the SVG path to be a thin blue line without any area fill */
+			path {
+				stroke-width: 1.5;
+				fill: none;
+			}
+			.data1 {
+				stroke: steelblue;
+			}
+
+			.data2 {
+				stroke: orange;
+			}
+
+			.axis {
+				shape-rendering: crispEdges;
+			}
+
+			.x.axis line {
+				stroke: lightgrey;
+			}
+
+			.x.axis .minor {
+				stroke-opacity: .5;
+			}
+			
+			.x.axis path {
+				display: true;
+				fill: none;
+				stroke: lightgrey;
+				stroke-width: 1;
+			}
+					
+			.x.axis text {
+				font-size: 10pt;
+				font-family: calibri;
+			}
+
+			.y.axis line, .y.axis path {
+				fill: none;
+				stroke: #000;
+				stroke-width: 1;
+			}
+
+			.y.axis text {
+				font-size: 14;
+				/*font-weight: bold;*/
+			}
+
+			.y.axisRight text {
+				fill: orange;
+			}
+			.y.axisLeft text {
+				fill: steelblue;
+			}
+			
+			.overlay {
+			  fill: none;
+			  stroke: none;
+			  pointer-events: all;
+			}			
+			#datetxt {
+				font-family: Calibri;
+				font-size: 11pt;
+			}
+			
+			html {
+				margin-top: 0px;
+				margin-left: 10px; 
+				padding: 0px}
+			body {	
+				margin: 0px; padding: 0px
+			}
+			
+			#content {
+				width: 960px;
+				background: #e8e8e8;
+				font: 12px sans-serif;
+				color: #2f2f2f;
+				margin-top: 0px;
+				margin-left: 0px;
+				padding-top: 0px;
+				padding-top: 3px;
+				padding-right: 3px;
+				padding-left: 3px;
+			}
+			
+			#graph {
+				/*width: 655px;*/
+				/*border: 1px solid black;*/
+				background: #fefefe;	
+				margin-top: 0px;
+				margin-left: 0px;
+				padding-top: 0px;
+				padding-top: 0px;
+				padding-right: 0px;
+				padding-left: 0px;
+			}			
+		</style>
+	</head>
+	<body>
+		<div id="content">
+			<table width="100%" border="0">
+				<tr>
+					<td><div style="font-family: Calibri; font-size:36pt;">HydroShare Time Series Vis</div></td>
+					<td><img src="./logos.png" height="50px" align="right"/></td>
+				</tr>
+				<tr>
+					<td colspan="2"><hr/></td>
+				</tr>
+			</table>
+		
+		The plot below shows two quantities measured at a single site. The purpose is to allow a user to compare two distinct time series. 
+		In the example below the two series correspond to discharge and gage.  
+		<b>Highlight data points:</b> hover mouse over the plot to see data values for particular time steps. <br/>
+		<p>
+			The plots below were generated using D3.js JavaScript API and standard HTML and CSS.  
+		</p> 
+		</div>
+
+		<div id="graph" class="aGraph"></div>
+		<div id="content">
+		<font color="#606060" size="2"> Visualization: 
+		Sidharth Thakur, (RENCI; sthakur@renci.org), last modified <script type="text/javascript"> document.write(document.lastModified)</script>. Data: Jeff Horsburgh and David Tarboton (Utah State University).
+		</font>	
+		</div>
+
+		<script>
+			/* implementation heavily influenced by http://bl.ocks.org/1166403 */
+			/* some arguments AGAINST the use of dual-scaled axes line graphs can be found at http://www.perceptualedge.com/articles/visual_business_intelligence/dual-scaled_axes.pdf */
+			// define dimensions of graph
+			var m = [80, 80, 80, 80];
+			// margins
+			var w = 900 - m[1] - m[3];
+			// width
+			var h = 400 - m[0] - m[2];
+			// height
+
+			var data1 = [], data2 = [];
+			var boolLogScale = false;
+			var parseDate = d3.time.format("%m/%d/%Y").parse,
+			    bisectDate = d3.bisector(function(d) { return d.date; }).left,
+			    formatValue = d3.format(",.2f");
+
+			// D3 loads data files asynchronously, which means that the method d3.csv(..) 
+			// returns immediately and the data are returned once reading the csv file 
+			// has been finished. This means that data will not be available in other methods
+			// and they will return error that data arrays are undefined. A work around is to 
+			// nest calls to d3's csv reader and call the plotting method in the inner-most loop.
+			// A more elegant solution is needed in case number of files to be read is unknown.
+			d3.csv("./jw_discharge.csv", function(src1) {
+				d3.csv("./jw_gage.csv", function(src2) {
+					data1 = src1;
+					data2 = src2;
+
+					data1.forEach(function(d, i) {
+						d.date = parseDate(d.date);
+						if( boolLogScale )
+							d.value = Math.log(+d.value);
+						else
+							d.value = (+d.value);
+					});
+	
+					data2.forEach(function(d, i) {
+						d.date = parseDate(d.date);
+						if( boolLogScale )
+							d.value = Math.log(+d.value);
+						else
+							d.value = (+d.value);
+					});
+				
+					DrawGraph();
+				});
+			});
+
+
+			function DrawGraph() {
+
+				console.log(" boolLogScale : " + boolLogScale );
+
+					
+				// X scale will fit all values from data[] within pixels 0-w
+				var x = d3.time.scale().domain(d3.extent(data1.map(function(d) { return d.date; }))).range([0,w]);
+				
+				// Y scale will fit values from 0-10 within pixels h-0 (Note the inverted domain for the y-scale: bigger is up!)
+				var y1 = d3.scale.linear().domain([0, d3.max(data1.map( function(d){return d.value;} ) )]).range([h, 0]);
+				
+				// in real world the domain would be dynamically calculated from the data
+				var y2 = d3.scale.linear().domain([0, d3.max(data2.map( function(d){return d.value;} ) )]).range([h, 0]);
+				
+				// in real world the domain would be dynamically calculated from the data
+				// automatically determining max range can work something like this
+				// var y = d3.scale.linear().domain([0, d3.max(data)]).range([h, 0]);
+	
+				// create a line function that can convert data[] into x and y points
+				var line1 = d3.svg.line()
+					// assign the X function to plot our line as we wish
+					.x(function(d, i) {
+						// verbose logging to show what's actually being done
+						//console.log('Plotting X1 value for data point: ' + d + ' using index: ' + i + ' to be at: ' + x(i) + ' using our xScale.');
+						// return the X coordinate where we want to plot this datapoint
+						return x(d.date);
+					})
+					.y(function(d) {
+						// verbose logging to show what's actually being done
+						//console.log('Plotting Y1 value for data point: ' + d + ' to be at: ' + y1(d) + " using our y1Scale.");
+						// return the Y coordinate where we want to plot this datapoint
+						return y1(d.value);
+					});
+	
+				// create a line function that can convert data[] into x and y points
+				var line2 = d3.svg.line()
+					// assign the X function to plot our line as we wish
+					.x(function(d, i) {
+						// verbose logging to show what's actually being done
+						//console.log('Plotting X2 value for data point: ' + d + ' using index: ' + i + ' to be at: ' + x(i) + ' using our xScale.');
+						// return the X coordinate where we want to plot this datapoint
+						return x(d.date);
+					})
+					.y(function(d) {
+						// verbose logging to show what's actually being done
+						//console.log('Plotting Y2 value for data point: ' + d + ' to be at: ' + y2(d) + " using our y2Scale.");
+						// return the Y coordinate where we want to plot this datapoint
+						return y2(d.value);
+					});
+				
+				// Add an SVG element with the desired dimensions and margin.
+				var graph = d3.select("#graph").append("svg:svg").attr("width", w + m[1] + m[3]).attr("height", h + m[0] + m[2]).append("svg:g").attr("transform", "translate(" + m[3] + "," + m[0] + ")");
+				
+				var focus1 = graph.append("g").attr("class","focus"),
+					focus2 = graph.append("g").attr("class","focus");
+				
+				// create yAxis
+				var xAxis = d3.svg.axis().scale(x).tickSize(-h).tickSubdivide(true);
+				// create left yAxis
+				var yAxisLeft = d3.svg.axis().scale(y1).ticks(4).orient("left");
+				// create right yAxis
+				var yAxisRight = d3.svg.axis().scale(y2).ticks(6).orient("right");
+
+
+				// Add the x-axis.
+				graph.append("svg:g")
+					.attr("class", "x axis")
+					.attr("transform", "translate(0," + h + ")")
+					.call(xAxis);
+
+				// Add the y-axis to the left
+				graph.append("svg:g")
+					.attr("class", "y axis axisLeft")
+					.attr("transform", "translate(-15,0)")
+					.call(yAxisLeft);
+
+				// Add the y-axis to the right
+				graph.append("svg:g")
+					.attr("class", "y axis axisRight")
+					.attr("transform", "translate(" + (w + 15) + ",0)")
+					.call(yAxisRight);
+					
+				// add lines
+				// do this AFTER the axes above so that the line is above the tick-lines
+				graph.append("svg:path")
+					.attr("d", line1(data1))
+					.attr("class", "data1");
+				graph.append("svg:path")
+					.attr("d", line2(data2))
+					.attr("class", "data2");
+					
+				graph.append("text")
+					.text("Discharge")
+					.attr("x",5)
+					.attr("y",20)
+					.attr("fill","steelblue");
+					
+				graph.append("text")
+					.text("Gage")
+					.attr("x",5)
+					.attr("y",40)
+					.attr("fill","orange");
+					
+				graph.append("text")
+					.text("Jacobs Well Spg nr Wimberley, TX")
+					.attr("x",5)
+					.attr("y",0)
+					.attr("fill","black");
+					
+			  graph.append("text")
+			      .attr("transform", "rotate(-90)")
+			      .attr("y", -60)
+			      .attr("dy", ".71em")
+			      .style("text-anchor", "end")
+			      .text("Discharge (cu. feet per sec)");
+
+			  graph.append("text")
+			      .attr("transform", "rotate(-90)")
+			      .attr("y", w+60)
+			      .attr("dy", ".71em")
+			      .style("text-anchor", "end")
+			      .text("Gage (feet)");
+			      
+			  graph.append("text")
+			  	  .attr("id","datetxt")
+			      .attr("x", (w/2))
+			      //.attr("dy", ".71em")
+			      .style("text-anchor", "end")
+			      .text("");			      
+			      	      					
+				focus1.append("circle")
+					.attr("r", 3);
+					
+				focus1.append("text")
+					.attr("x", 3)
+					.attr("y", 15)
+					.attr("stroke","steelblue")
+					.attr("fill","steelblue")
+					.attr("dy", ".35em");
+					
+				focus2.append("circle")
+					.attr("r", 3);
+					
+				focus2.append("text")
+					.attr("x", 3)
+					.attr("y", -15)
+					.attr("stroke","orange")
+					.attr("fill","orange")
+					.attr("dy", ".35em");
+					
+				graph.append("rect")
+					.attr("class","overlay")
+					.attr("width",w)
+					.attr("height",h)
+					.on("mouseover", function() { focus1.style("display", null); focus2.style("display", null); })
+					.on("mouseout", function() { focus1.style("display", "none"); focus2.style("display", "none"); graph.select("#datetxt").style("display","none");})
+					.on("mousemove", mousemove);
+		
+			  	function mousemove() {
+				    var x0 = x.invert(d3.mouse(this)[0]),
+				        i = bisectDate(data1, x0, 1),
+				        d0 = data1[i - 1],
+				        d1 = data1[i],
+				        d = x0 - d0.date > d1.date - x0 ? d1 : d0;
+				    focus1.attr("transform", "translate(" + x(d.date) + "," + y1(d.value) + ")");
+				    focus1.select("text").text(formatValue(d.value));
+
+				    
+				        i = bisectDate(data2, x0, 1);
+				        d0 = data2[i - 1];
+				        d1 = data2[i];
+				        d = x0 - d0.date > d1.date - x0 ? d1 : d0;
+				    focus2.attr("transform", "translate(" + x(d.date) + "," + y2(d.value) + ")");
+				    focus2.select("text").text(formatValue(d.value));
+				    //console.log("mouse over... value: " + formatValue(d.site1));
+				    graph.select("#datetxt")
+				    	.text("Date:"+x0)
+				    	.attr("x",(w))
+				    	.style("display",null);
+				    	;
+				    console.log(" x0: " + x0);
+			  	}
+		
+					
+			}
+			
+			function setLog(val) {
+			  document.getElementById("linear").disabled = !val;
+			  // Log scale option disabled for now.
+			  //document.getElementById("log").disabled = val;
+			  
+			  boolLogScale = val;
+			  
+			  DrawGraph();
+			};
+			
+		</script>
+
+	</body>
+</html>

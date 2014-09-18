@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html>
+<head>
+<!-- 
+* Sidharth Thakur, Feb-March 2013 (email: sthakur@renci.org).
+* Visualization panel showing time series graphs for two different sites. This example demonstrates 
+* the Dygraphs JavaScript API, which provides 'canned' plots to generate web-based graphs. A number 
+* of chart options can be customized. See http://dygraphs.com/index.html 
+-->	
+<meta http-equiv="X-UA-Compatible" content="IE=EmulateIE7; IE=EmulateIE9">
+<meta http-equiv="content-type" content="text/html; charset=UTF-8"><meta charset="utf-8">
+<!--[if IE]>
+<script type="text/javascript" src="./excanvas.js"></script>
+<![endif]-->
+<script type="text/javascript" src="http://dygraphs.com/dygraph-combined.js"></script>
+
+
+<style>
+html {
+	margin-top: 0px;
+	margin-left: 10px; 
+	padding: 0px}
+body {	
+	margin: 0px; padding: 0px
+}
+
+#content {
+	width: 960px;
+	background: #e8e8e8;
+	font: 12px sans-serif;
+	color: #2f2f2f;
+	margin-top: 0px;
+	margin-left: 0px;
+	padding-top: 0px;
+	padding-top: 3px;
+	padding-right: 3px;
+	padding-left: 3px;
+}
+
+#graph {
+	width: 960px;
+	border: 1px solid black;
+	background: #fefefe;	
+	margin-top: 0px;
+	margin-left: 0px;
+	padding-top: 0px;
+	padding-top: 0px;
+	padding-right: 3px;
+	padding-left: 3px;
+}
+
+#graphdiv{
+	/*border: 1px solid black;*/	
+}
+
+.mybutton {
+	color: #0000ff;	
+}
+
+</style>
+</head>
+<body>
+	
+<div id="content">
+	<table width="100%" border="0">
+		<tr>
+			<td><div style="font-family: Calibri; font-size:36pt;">HydroShare Time Series Vis</div></td>
+			<td><img src="./logos.png" height="50px" align="right"/></td>
+		</tr>
+		<tr>
+			<td colspan="2"><hr/></td>
+		</tr>
+	</table>
+
+The plot below compares a single quantity (discharge, cubic feet per second) for two sites. 
+  
+<b>Highlight data points:</b> hover mouse over the plot to see data values for particular time steps. <br/> 
+<b>Zooming and panning:</b> Range sliders on the thumbnail version of one of the time series 
+shown below the main graph provides zoom and pan operations.  
+<p>
+	The plots below were generated using D3.js JavaScript API and standard HTML and CSS.  
+</p>
+</div>
+<br/>
+
+<div id="graph">
+<table>
+	<tr>
+		<td>
+			<div id="graphdiv" style="width:800px; height:500px;"></div>
+		</td>
+		<td valign=top>
+			<div id="legend" style="width:150px; font-size:0.8em; padding-top:5px;"></div>
+		</td>
+	</tr>
+</table>
+<div style="width: 800px; text-align: center;">
+  <input class="mybutton" id="linear" type="button" value="Linear Scale" onClick="setLog(false)" />
+  &nbsp;
+  <input class="mybutton" id="log" type="button" value="Log Scale" onClick="setLog(true)" disabled=true />
+</div>
+</div>
+
+<script type="text/javascript">
+  var g = new Dygraph(
+  	// Where to draw.
+    document.getElementById("graphdiv"),
+    
+    // What to draw.
+    "site_compare_discharge.csv", 
+    
+    // How to draw.
+    {
+    	logscale: true,
+    	title: "Discharge: Jacobs Well Spg vs Blanco Rv at Halifax Rch",
+    	xlabel: "Date",
+    	ylabel: "Discharge cu. feet per sec",
+    	yLabelWidth: 20,
+    	yRangePad: 3,
+    	colors: ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2'],
+    	strokeWidth: 1.75,
+    	labelsDivWidth: 350,
+    	hideOverlayOnMouseOut:true,
+    	labelsDiv: document.getElementById('legend'),
+    	legend: 'always',
+        labelsDivStyles: { 'textAlign': 'right' },
+        labelsSeparateLines: true,
+        showRangeSelector: true,
+    }          
+  );
+  
+	function setLog(val) {
+	  g.updateOptions({ logscale: val });
+	  document.getElementById("linear").disabled = !val;
+	  document.getElementById("log").disabled = val;
+	}
+</script>
+
+
+</br>
+<div id="content">
+<font color="#606060" size="2"> Visualization: 
+Sidharth Thakur, (RENCI; sthakur@renci.org), last modified <script type="text/javascript"> document.write(document.lastModified)</script>. Data: Jeff Horsburgh and David Tarboton (Utah State University).
+</font>	
+</div>
+</body>
+</html>
